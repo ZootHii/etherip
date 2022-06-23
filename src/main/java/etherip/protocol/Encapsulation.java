@@ -262,4 +262,8 @@ public class Encapsulation implements Protocol
     {
         return this.session;
     }
+
+    final public Encapsulation withNewSession(final int newSession) {
+        return new Encapsulation(command, newSession, body);
+    }
 }

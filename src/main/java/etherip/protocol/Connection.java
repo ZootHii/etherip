@@ -9,8 +9,11 @@ package etherip.protocol;
 
 import static etherip.EtherNetIP.logger;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
 /**
@@ -28,14 +31,27 @@ public abstract class Connection implements AutoCloseable
 
     final private static int BUFFER_SIZE = 600;
 
+    final private static int DEFAULT_TIMEOUT_MS = 2000;
+
+    final private static int DEFAULT_PORT = 0xAF12;
+
+    final private static int DEFAULT_RETRIES = 3;
+
+    final private static int DEFAULT_SLEEP = 500;
+
+    protected final String address;
+
+    protected final int port;
+
     protected final int slot;
+
+    protected final int timeout_ms;
+
+    protected final int retries;
 
     protected final ByteBuffer buffer;
 
-    private int session = 0;
-
-    protected long timeout_ms = 2000;
-    protected int port = 0xAF12;
+    private volatile int session = 0;
 
     /**
      * Initialize
@@ -44,17 +60,43 @@ public abstract class Connection implements AutoCloseable
      *            IP address of device
      * @param slot
      *            Slot number 0, 1, .. of the controller within PLC crate
-     * @throws Exception
-     *             on error
      */
-    public Connection(final String address, final int slot) throws Exception
+    public Connection(final String address, final int slot)
+    {
+        this(address, DEFAULT_PORT, slot, DEFAULT_TIMEOUT_MS, DEFAULT_RETRIES);
+    }
+
+    /**
+     * Initialize
+     *
+     * @param address
+     *            IP address of device
+     * @param port
+     *            Port number of device
+     * @param slot
+     *            Slot number 0, 1, .. of the controller within PLC crate
+     * @param timeout_ms
+     *            Timeout in ms
+     * @param retries
+     *            Connection retry count
+     */
+    public Connection(final String address, final int port, final int slot, final int timeout_ms, final int retries)
     {
         logger.log(Level.INFO, "Connecting to {0}:{1}",
-                new Object[] { address, String.format("0x%04X", this.port) });
+                new Object[] { address, port });
+        this.address = address;
+        this.port = port;
         this.slot = slot;
-
-        this.buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
+        this.timeout_ms = timeout_ms;
+        this.retries = retries;
+        this.buffer = ByteBuffer.allocate(BUFFER_SIZE);
         this.buffer.order(BYTE_ORDER);
+    }
+
+    /** @return IP address of device */
+    public String getAddress()
+    {
+        return this.address;
     }
 
     /** @return Slot number 0, 1, .. of the controller within PLC crate */
@@ -63,13 +105,16 @@ public abstract class Connection implements AutoCloseable
         return this.slot;
     }
 
-    /**
-     * @param session
-     *            Session ID to be identified with this connection
-     */
-    public void setSession(final int session)
+    /** @return Port number of device */
+    public int getPort()
     {
-        this.session = session;
+        return this.port;
+    }
+
+    /** @return Timeout in ms */
+    public int getTimeoutMs()
+    {
+        return this.timeout_ms;
     }
 
     /** @return Session ID of this connection */
@@ -78,13 +123,18 @@ public abstract class Connection implements AutoCloseable
         return this.session;
     }
 
-    /** @return {@link ByteBuffer} */
-    public ByteBuffer getBuffer()
+    /**
+     * @param session
+     *            Session ID to be identified with this connection
+     */
+    protected void setSession(final int session)
     {
-        return this.buffer;
+        this.session = session;
     }
 
-    public abstract boolean isOpen() throws Exception;
+    public abstract boolean isOpen();
+
+    public abstract void connect() throws Exception;
 
     /**
      * Write protocol data
@@ -104,8 +154,7 @@ public abstract class Connection implements AutoCloseable
      * @throws Exception
      *             on error
      */
-    protected abstract void read(final ProtocolDecoder decoder)
-            throws Exception;
+    public abstract void read(final ProtocolDecoder decoder) throws Exception;
 
     /**
      * Write protocol request and handle response
@@ -115,10 +164,49 @@ public abstract class Connection implements AutoCloseable
      * @throws Exception
      *             on error
      */
-    public synchronized void execute(final Protocol protocol) throws Exception
+    public synchronized void execute(Protocol protocol) throws Exception
     {
-        this.write(protocol);
-        this.read(protocol);
+        final int retryLimit = retries > 0 ? retries : DEFAULT_RETRIES;
+        int retryCounter = 0;
+        boolean retry = true;
+        while (retry) {
+            try {
+                if (!isOpen()) {
+                    connect();
+                    if (protocol instanceof Encapsulation) {
+                        protocol = ((Encapsulation) protocol).withNewSession(session);
+                    }
+                }
+                this.write(protocol);
+                this.read(protocol);
+                retry = false;
+            } catch (Exception e) {
+                close();
+                if (++retryCounter >= retryLimit) {
+                    throw new Exception(String.format("Failed to execute %d times", retryCounter), e);
+                } else {
+                    sleep(retryCounter);
+                }
+            }
+        }
     }
 
+    protected void closeQuietly(final Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (final IOException ignored) {
+                //Ignore
+            }
+        }
+    }
+
+    protected void sleep(final int count) {
+        long ms = (DEFAULT_SLEEP / 2) + (long) (ThreadLocalRandom.current().nextDouble() * DEFAULT_SLEEP * count);
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ignored) {
+            //Ignore
+        }
+    }
 }

@@ -31,15 +31,11 @@ public class RegisterSessionDemo
         try (TcpConnection tcpConnection = new TcpConnection(
                 TestSettings.get("plc"), TestSettings.getInt("slot"));)
         {
-            final RegisterSession register = new RegisterSession();
-            tcpConnection.write(register);
-
-            assertThat(register.getSession(), equalTo(0));
-
-            tcpConnection.read(register);
+            assertThat(tcpConnection.getSession(), equalTo(0));
+            tcpConnection.connect();
             System.out.println("Received session 0x"
-                    + Integer.toHexString(register.getSession()));
-            assertThat(register.getSession(), not(equalTo(0)));
+                    + Integer.toHexString(tcpConnection.getSession()));
+            assertThat(tcpConnection.getSession(), not(equalTo(0)));
         }
     }
 }

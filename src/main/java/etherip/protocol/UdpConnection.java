@@ -9,9 +9,9 @@ package etherip.protocol;
 
 import static etherip.EtherNetIP.logger;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
 import java.util.logging.Level;
 
 import etherip.util.Hexdump;
@@ -25,8 +25,9 @@ import etherip.util.Hexdump;
  */
 public class UdpConnection extends Connection
 {
-    private final DatagramChannel receiveChannel;
-    private final DatagramChannel channel;
+    private DatagramSocket datagramSocket;
+    private InetSocketAddress inetSocketAddress;
+    private volatile boolean isOpen;
 
     /**
      * Initialize
@@ -40,27 +41,35 @@ public class UdpConnection extends Connection
     public UdpConnection(final String address, final int slot) throws Exception
     {
         super(address, slot);
-
-        this.channel = DatagramChannel.open();
-
-        this.channel.connect(new InetSocketAddress(address, this.port));
-
-        this.receiveChannel = DatagramChannel.open();
-        this.receiveChannel.socket().bind(new InetSocketAddress(this.port));
     }
 
-    /** @return Slot number 0, 1, .. of the controller within PLC crate */
-    @Override
-    public int getSlot()
-    {
-        return this.slot;
+    /**
+     * Initialize
+     *
+     * @param address
+     *            IP address of device
+     * @param port
+     *            Port number of device
+     * @param slot
+     *            Slot number 0, 1, .. of the controller within PLC crate
+     * @param timeout_ms
+     *            Timeout in ms
+     */
+    public UdpConnection(final String address, final int port, final int slot, final int timeout_ms, final int retries) {
+        super(address, port, slot, timeout_ms, retries);
     }
 
-    /** @return {@link ByteBuffer} */
     @Override
-    public ByteBuffer getBuffer()
-    {
-        return this.buffer;
+    public synchronized void connect() throws Exception {
+        if (!isOpen()) {
+            inetSocketAddress = new InetSocketAddress(address, port);
+            datagramSocket = new DatagramSocket();
+            datagramSocket.setReceiveBufferSize(1024);
+            datagramSocket.setSendBufferSize(1024);
+            datagramSocket.setSoTimeout(timeout_ms);
+            datagramSocket.connect(inetSocketAddress);
+            isOpen = true;
+        }
     }
 
     /**
@@ -72,7 +81,7 @@ public class UdpConnection extends Connection
      *             on error
      */
     @Override
-    public void write(final ProtocolEncoder encoder) throws Exception
+    public synchronized void write(final ProtocolEncoder encoder) throws Exception
     {
         final StringBuilder log = logger.isLoggable(Level.FINER)
                 ? new StringBuilder() : null;
@@ -90,15 +99,11 @@ public class UdpConnection extends Connection
                             Hexdump.toHexdump(this.buffer) });
         }
         int to_write = this.buffer.limit();
-        while (to_write > 0)
-        {
-            final int written = this.channel.write(this.buffer);
-            to_write -= written;
-            if (to_write > 0)
-            {
-                this.buffer.compact();
-            }
-        }
+        byte[] buf = new byte[to_write];
+        buffer.get(buf, 0, to_write);
+
+        DatagramPacket datagramPacket = new DatagramPacket(buf, buf.length, inetSocketAddress);
+        datagramSocket.send(datagramPacket);
     }
 
     /**
@@ -110,17 +115,17 @@ public class UdpConnection extends Connection
      *             on error
      */
     @Override
-    public void read(final ProtocolDecoder decoder) throws Exception
+    public synchronized void read(final ProtocolDecoder decoder) throws Exception
     {
         // Read until protocol has enough data to decode
         this.buffer.clear();
-        if (this.receiveChannel.isBlocking())
-        {
-            this.receiveChannel.socket().setSoTimeout((int) this.timeout_ms);
-        }
+        byte[] buf = new byte[buffer.limit()];
+
         do
         {
-            this.receiveChannel.receive(this.buffer);
+            DatagramPacket datagramPacket = new DatagramPacket(buf, buf.length);
+            datagramSocket.receive(datagramPacket);
+            buffer.put(buf);
         }
         while (this.buffer.position() < decoder.getResponseSize(this.buffer));
         // Prepare to decode
@@ -147,15 +152,15 @@ public class UdpConnection extends Connection
     }
 
     @Override
-    public void close() throws Exception
+    public synchronized void close() throws Exception
     {
-        this.channel.close();
+        datagramSocket.close();
+        isOpen = false;
     }
 
     @Override
-    public boolean isOpen() throws Exception
+    public boolean isOpen()
     {
-        return this.channel.isOpen();
+        return isOpen;
     }
-
 }

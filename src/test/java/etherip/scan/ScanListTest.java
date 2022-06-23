@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import etherip.Tag;
@@ -44,9 +45,7 @@ public class ScanListTest implements TagListener
 
         this.connection = new TcpConnection(TestSettings.get("plc"),
                 TestSettings.getInt("slot"));
-        final RegisterSession register = new RegisterSession();
-        this.connection.execute(register);
-        this.connection.setSession(register.getSession());
+        this.connection.connect();
     }
 
     @After
@@ -130,6 +129,7 @@ public class ScanListTest implements TagListener
     }
 
     @Test
+    @Ignore
     public void testScanListError() throws Exception
     {
         final Scanner scanner = new Scanner(this.connection);

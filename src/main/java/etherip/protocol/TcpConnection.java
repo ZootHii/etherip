@@ -7,14 +7,16 @@
  *******************************************************************************/
 package etherip.protocol;
 
-import static etherip.EtherNetIP.logger;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import etherip.util.Hexdump;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.net.InetSocketAddress;
-import java.nio.channels.AsynchronousSocketChannel;
+import java.net.Socket;
 import java.util.logging.Level;
 
-import etherip.util.Hexdump;
+import static etherip.EtherNetIP.logger;
+import static etherip.protocol.Encapsulation.Command.UnRegisterSession;
 
 /**
  * Connection to EtherNet/IP device via TCP
@@ -25,7 +27,10 @@ import etherip.util.Hexdump;
  */
 public class TcpConnection extends Connection
 {
-    private final AsynchronousSocketChannel channel;
+    private Socket socket;
+    private BufferedInputStream inputStream;
+    private BufferedOutputStream outputStream;
+    private volatile boolean connected;
 
     /**
      * Initialize
@@ -34,16 +39,58 @@ public class TcpConnection extends Connection
      *            IP address of device
      * @param slot
      *            Slot number 0, 1, .. of the controller within PLC crate
-     * @throws Exception
      */
-    public TcpConnection(final String address, final int slot) throws Exception
+    public TcpConnection(final String address, final int slot)
     {
         super(address, slot);
-
-        this.channel = AsynchronousSocketChannel.open();
-        this.channel.connect(new InetSocketAddress(address, this.port))
-                .get(this.timeout_ms, MILLISECONDS);
     }
+
+    /**
+     * Initialize
+     *
+     * @param address
+     *            IP address of device
+     * @param port
+     *            Port number of device
+     * @param slot
+     *            Slot number 0, 1, .. of the controller within PLC crate
+     * @param timeout_ms
+     *            Timeout in ms
+     * @param retries
+     *            Connection retry count
+     */
+    public TcpConnection(final String address, final int port, final int slot, final int timeout_ms, final int retries)
+    {
+        super(address, port, slot, timeout_ms, retries);
+    }
+
+    @Override
+    public synchronized void connect() throws Exception {
+        if (!isOpen()) {
+            this.socket = new Socket();
+            this.socket.setReuseAddress(true);
+            this.socket.setSoLinger(true, 1);
+            this.socket.setKeepAlive(true);
+            this.socket.setSoTimeout(timeout_ms);
+            this.socket.connect(new InetSocketAddress(address, port), timeout_ms);
+            this.outputStream = new BufferedOutputStream(socket.getOutputStream());
+            this.inputStream = new BufferedInputStream(socket.getInputStream());
+            this.connected = true;
+            registerSession();
+        }
+    }
+
+    /**
+     * Register session
+     */
+    private void registerSession() throws Exception
+    {
+        final RegisterSession register = new RegisterSession();
+        write(register);
+        read(register);
+        setSession(register.getSession());
+    }
+
 
     /**
      * Write protocol data
@@ -54,7 +101,7 @@ public class TcpConnection extends Connection
      *             on error
      */
     @Override
-    public void write(final ProtocolEncoder encoder) throws Exception
+    public synchronized void write(final ProtocolEncoder encoder) throws Exception
     {
         final StringBuilder log = logger.isLoggable(Level.FINER)
                 ? new StringBuilder() : null;
@@ -74,16 +121,10 @@ public class TcpConnection extends Connection
         }
 
         int to_write = this.buffer.limit();
-        while (to_write > 0)
-        {
-            final int written = this.channel.write(this.buffer)
-                    .get(this.timeout_ms, MILLISECONDS);
-            to_write -= written;
-            if (to_write > 0)
-            {
-                this.buffer.compact();
-            }
-        }
+        byte[] buf = new byte[to_write];
+        buffer.get(buf, 0, to_write);
+        outputStream.write(buf);
+        outputStream.flush();
     }
 
     /**
@@ -95,13 +136,19 @@ public class TcpConnection extends Connection
      *             on error
      */
     @Override
-    public void read(final ProtocolDecoder decoder) throws Exception
+    public synchronized void read(final ProtocolDecoder decoder) throws Exception
     {
         // Read until protocol has enough data to decode
         this.buffer.clear();
+        byte[] buf = new byte[buffer.limit()];
+
         do
         {
-            this.channel.read(this.buffer).get(this.timeout_ms, MILLISECONDS);
+            if (inputStream.read(buf) != -1) {
+                buffer.put(buf);
+            } else {
+                throw new Exception("EOF");
+            }
         }
         while (this.buffer.position() < decoder.getResponseSize(this.buffer));
 
@@ -131,15 +178,41 @@ public class TcpConnection extends Connection
     }
 
     @Override
-    public void close() throws Exception
+    public synchronized void close() throws Exception
     {
-        this.channel.close();
+        unregisterSession();
+        closeQuietly(outputStream);
+        closeQuietly(inputStream);
+        closeQuietly(socket);
+        connected = false;
+    }
+
+
+    /** Unregister session (device will close connection) */
+    private void unregisterSession()
+    {
+        if (getSession() == 0 || !isOpen())
+        {
+            return;
+        }
+        try
+        {
+            Encapsulation unregisterSession = new Encapsulation(UnRegisterSession,
+                    getSession(), new ProtocolAdapter());
+            write(unregisterSession);
+            // Cannot read after this point because PLC will close the connection
+        }
+        catch (final Exception ex)
+        {
+            logger.log(Level.WARNING,
+                    "Error un-registering session: " + ex.getLocalizedMessage(),
+                    ex);
+        }
     }
 
     @Override
-    public boolean isOpen() throws Exception
+    public boolean isOpen()
     {
-        return this.channel.isOpen();
+        return connected;
     }
-
 }

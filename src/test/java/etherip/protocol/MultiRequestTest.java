@@ -15,6 +15,7 @@ import static org.junit.Assert.assertThat;
 import java.nio.ByteBuffer;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import etherip.TestSettings;
@@ -34,6 +35,7 @@ public class MultiRequestTest
     }
 
     @Test
+    @Ignore
     public void testReadData() throws Exception
     {
         final int session = 0x12345678;

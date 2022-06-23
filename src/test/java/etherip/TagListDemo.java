@@ -34,9 +34,7 @@ public class TagListDemo
         try (final Connection connection = new TcpConnection(
                 TestSettings.get("plc"), TestSettings.getInt("slot"));)
         {
-            final RegisterSession register = new RegisterSession();
-            connection.execute(register);
-            connection.setSession(register.getSession());
+            connection.connect();
 
             final TagList tags = new TagList();
             // Initial read

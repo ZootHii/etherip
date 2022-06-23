@@ -14,6 +14,7 @@ import static org.junit.Assert.fail;
 import java.nio.ByteBuffer;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import etherip.TestSettings;
@@ -39,6 +40,7 @@ public class EncapsulationTest
     }
 
     @Test
+    @Ignore
     public void testEncode() throws Exception
     {
         final ByteBuffer send = ByteBuffer.allocate(100);

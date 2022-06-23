@@ -7,24 +7,20 @@
  *******************************************************************************/
 package etherip;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import etherip.data.CipException;
+import etherip.protocol.ListServicesProtocol;
+import etherip.types.CIPData;
+import etherip.types.CIPData.Type;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import etherip.data.CipException;
-import etherip.data.Identity;
-import etherip.types.CIPData;
-import etherip.types.CIPData.Type;
+import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 /** @author Kay Kasemir, László Pataki */
 @SuppressWarnings("nls")
@@ -64,7 +60,6 @@ public class EtherIPDemo
     }
 
     @Test
-    @Ignore
     public void testConnectUdp() throws Exception
     {
         Logger.getLogger("").setLevel(Level.INFO);
@@ -81,13 +76,12 @@ public class EtherIPDemo
             System.out.println("\n*\n* UDP Socket established:\n*\n");
             System.out.println(plc);
 
-            final Identity[] listIdentity = plc.listIdentity();
+            final ListServicesProtocol.Service[] listServices = plc.listServices();
 
-            for (final Identity identity : listIdentity)
+            for (final ListServicesProtocol.Service service : listServices)
             {
-                System.out.println(identity);
+                System.out.println(service);
             }
-            // plc.listServices();
         }
         catch (final CipException e)
         {

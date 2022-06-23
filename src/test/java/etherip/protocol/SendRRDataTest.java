@@ -14,6 +14,7 @@ import static org.junit.Assert.assertThat;
 import java.nio.ByteBuffer;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import etherip.TestSettings;
@@ -34,6 +35,7 @@ public class SendRRDataTest
     }
 
     @Test
+    @Ignore
     public void testSendRRData() throws Exception
     {
         final MessageRouterProtocol pdu = new MessageRouterProtocol(
