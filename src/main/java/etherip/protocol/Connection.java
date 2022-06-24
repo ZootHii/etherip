@@ -180,7 +180,7 @@ public abstract class Connection implements AutoCloseable
                 this.write(protocol);
                 this.read(protocol);
                 retry = false;
-            } catch (Exception e) {
+            } catch (IOException e) {
                 close();
                 if (++retryCounter >= retryLimit) {
                     throw new Exception(String.format("Failed to execute %d times", retryCounter), e);

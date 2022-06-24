@@ -154,7 +154,7 @@ public class UdpConnection extends Connection
     @Override
     public synchronized void close() throws Exception
     {
-        datagramSocket.close();
+        closeQuietly(datagramSocket);
         isOpen = false;
     }
 
