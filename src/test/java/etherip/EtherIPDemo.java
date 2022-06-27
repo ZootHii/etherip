@@ -237,7 +237,7 @@ public class EtherIPDemo {
             final String tag = TestSettings.get("string_tag");
 
             String value = "Merhaba Asker!";
-            byte[] data = new byte[(value.toString().length() + 7) + 90 - (value.toString().length() + 7)];
+            byte[] data = new byte[Math.max((value.length() + 7), 90)]; // 0x13 Too short error if data is < 90 bytes
             CIPData cipData = new CIPData(CIPData.Type.STRUCT, data);
             cipData.setString(value);
 
