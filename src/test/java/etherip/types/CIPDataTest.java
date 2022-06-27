@@ -71,6 +71,24 @@ public class CIPDataTest
     }
 
     @Test
+    public void testString2() throws Exception
+    {
+        String value = "Merhaba Asker!";
+        byte[] data = new byte[value.toString().length() + 7];
+        CIPData cipData = new CIPData(CIPData.Type.STRUCT, data);
+        cipData.setString(value);
+
+        assertThat(CIPData.Type.STRUCT, equalTo(cipData.getType()));
+
+        final String txt = cipData.getString();
+        System.out.println(txt);
+        assertThat(txt, equalTo("Merhaba Asker!"));
+
+        Assert.assertTrue(cipData.toString().contains("CIP_STRUCT"));
+        Assert.assertTrue(cipData.toString().contains("STRING"));
+    }
+
+    @Test
     public void testCreateType() throws Exception
     {
         final CIPData value = new CIPData(Type.INT, 3);
