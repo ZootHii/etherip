@@ -97,10 +97,13 @@ public class EtherNetIP implements AutoCloseable
     /**
      * Connect to device via TCP, register session
      */
-    public synchronized void connectTcp(final int port, final int timeout_ms, final int retries) throws Exception
+    public synchronized void connectTcp(final int port, final int timeout_ms, final int retries,
+                                        ConnectionStatusListener listener) throws Exception
     {
         if (this.connection == null) {
-            this.connection = new TcpConnection(this.address, port, this.slot, timeout_ms, retries);
+            TcpConnection tcpConnection = new TcpConnection(this.address, port, this.slot, timeout_ms, retries);
+            tcpConnection.setConnectionStatusListener(listener);
+            this.connection = tcpConnection;
             this.connection.connect();
         }
     }

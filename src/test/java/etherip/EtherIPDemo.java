@@ -12,6 +12,7 @@ import etherip.protocol.ListServicesProtocol;
 import etherip.types.CIPData;
 import etherip.types.CIPData.Type;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.logging.Level;
@@ -149,6 +150,40 @@ public class EtherIPDemo {
             assertThat(value, not(nullValue()));
             System.out.println("Changed to " + value);
             assertThat(value.getNumber(0).intValue(), equalTo(47));
+        }
+    }
+
+    @Test
+    @Ignore
+    public void testLong() throws Exception {
+        try
+                (
+                        EtherNetIP plc = new EtherNetIP(TestSettings.get("plc"),
+                                TestSettings.getInt("slot"));
+                ) {
+            plc.connectTcp();
+
+            final String tag = TestSettings.get("long_tag");
+
+            System.out.println("\n*\n* long '" + tag + "':\n*\n");
+            CIPData value = plc.readTag(tag);
+            System.out.println(value);
+            assertThat(value, not(nullValue()));
+            value.set(0, 421241231);
+            plc.writeTag(tag, value);
+
+            value = plc.readTag(tag);
+            assertThat(value, not(nullValue()));
+            System.out.println("Changed to " + value);
+            assertThat(value.getNumber(0).intValue(), equalTo(421241231));
+
+            value.set(0, 474346565);
+            plc.writeTag(tag, value);
+
+            value = plc.readTag(tag);
+            assertThat(value, not(nullValue()));
+            System.out.println("Changed to " + value);
+            assertThat(value.getNumber(0).intValue(), equalTo(474346565));
         }
     }
 

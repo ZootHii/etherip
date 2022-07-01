@@ -7,6 +7,7 @@
  *******************************************************************************/
 package etherip.protocol;
 
+import etherip.ConnectionStatusListener;
 import etherip.util.Hexdump;
 
 import java.io.BufferedInputStream;
@@ -31,6 +32,8 @@ public class TcpConnection extends Connection
     private BufferedInputStream inputStream;
     private BufferedOutputStream outputStream;
     private volatile boolean connected;
+    private volatile boolean previousConnected;
+    private ConnectionStatusListener connectionStatusListener;
 
     /**
      * Initialize
@@ -77,6 +80,10 @@ public class TcpConnection extends Connection
             this.inputStream = new BufferedInputStream(socket.getInputStream());
             this.connected = true;
             registerSession();
+            if (previousConnected != connected && connectionStatusListener != null) {
+                previousConnected = connected;
+                connectionStatusListener.connectionStatus();
+            }
         }
     }
 
@@ -90,7 +97,6 @@ public class TcpConnection extends Connection
         read(register);
         setSession(register.getSession());
     }
-
 
     /**
      * Write protocol data
@@ -185,8 +191,11 @@ public class TcpConnection extends Connection
         closeQuietly(inputStream);
         closeQuietly(socket);
         connected = false;
+        if (previousConnected != connected && connectionStatusListener != null) {
+            previousConnected = connected;
+            connectionStatusListener.connectionStatus();
+        }
     }
-
 
     /** Unregister session (device will close connection) */
     private void unregisterSession()
@@ -214,5 +223,9 @@ public class TcpConnection extends Connection
     public boolean isOpen()
     {
         return connected;
+    }
+
+    public void setConnectionStatusListener(ConnectionStatusListener connectionStatusListener){
+        this.connectionStatusListener = connectionStatusListener;
     }
 }

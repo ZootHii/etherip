@@ -37,6 +37,7 @@ final public class CIPData
         SINT(0x00C2, 1),
         INT(0x00C3, 2),
         DINT(0x00C4, 4),
+        LINT(0x00C5, 8),
         REAL(0x00CA, 4),
         BITS(0x00D3, 4),
         // Order of enums matter: BITS is the last numeric type (not-string)
@@ -113,6 +114,7 @@ final public class CIPData
         case SINT:
         case INT:
         case DINT:
+        case LINT:
         case BITS:
         case REAL:
             this.data = ByteBuffer.allocate(type.element_size * elements);
@@ -153,6 +155,7 @@ final public class CIPData
         case SINT:
         case INT:
         case DINT:
+        case LINT:
         case BITS:
         case REAL:
             return (short) (this.data.capacity() / this.type.element_size);
@@ -203,17 +206,16 @@ final public class CIPData
         {
         case BOOL:
         case SINT:
-            return new Byte(this.data.get(this.type.element_size * index));
+            return this.data.get(this.type.element_size * index);
         case INT:
-            return new Short(
-                    this.data.getShort(this.type.element_size * index));
+            return this.data.getShort(this.type.element_size * index);
+        case LINT:
+            return this.data.getLong(this.type.element_size * index);
         case DINT:
         case BITS:
-            return new Integer(
-                    this.data.getInt(this.type.element_size * index));
+            return this.data.getInt(this.type.element_size * index);
         case REAL:
-            return new Float(
-                    this.data.getFloat(this.type.element_size * index));
+            return this.data.getFloat(this.type.element_size * index);
         default:
             throw new Exception("Cannot retrieve Number from " + this.type);
         }
@@ -273,6 +275,9 @@ final public class CIPData
         case INT:
             this.data.putShort(this.type.element_size * index,
                     value.shortValue());
+            break;
+        case LINT:
+            this.data.putLong(this.type.element_size * index, value.longValue());
             break;
         case DINT:
         case BITS:
@@ -391,6 +396,16 @@ final public class CIPData
             for (int i = 0; i < this.elements; ++i)
             {
                 values[i] = buf.getShort();
+            }
+            result.append(Arrays.toString(values));
+            break;
+        }
+        case LINT:
+        {
+            final long[] values = new long[this.elements];
+            for (int i = 0; i < this.elements; ++i)
+            {
+                values[i] = buf.getLong();
             }
             result.append(Arrays.toString(values));
             break;
