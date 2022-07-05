@@ -12,7 +12,6 @@ import etherip.protocol.ListServicesProtocol;
 import etherip.types.CIPData;
 import etherip.types.CIPData.Type;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.logging.Level;
@@ -154,7 +153,6 @@ public class EtherIPDemo {
     }
 
     @Test
-    @Ignore
     public void testLong() throws Exception {
         try
                 (

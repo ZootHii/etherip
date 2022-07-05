@@ -31,11 +31,11 @@ public abstract class Connection implements AutoCloseable
 
     final private static int BUFFER_SIZE = 600;
 
-    final private static int DEFAULT_TIMEOUT_MS = 2000;
+    final public static int DEFAULT_TIMEOUT_MS = 2000;
 
     final private static int DEFAULT_PORT = 0xAF12;
 
-    final private static int DEFAULT_RETRIES = 3;
+    final public static int DEFAULT_RETRIES = 3;
 
     final private static int DEFAULT_SLEEP = 500;
 
