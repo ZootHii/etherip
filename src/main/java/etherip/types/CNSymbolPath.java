@@ -38,19 +38,26 @@ public class CNSymbolPath extends CNPath
         private static final int MAX_BYTE_VALUE = 255;
 		private final String path;
         private final Integer index;
+        private final Integer index2;
 		private boolean firstElement;
+
+        public PathElement(final boolean firstElement, final String path, final Integer index, final Integer index2) {
+            this.firstElement = firstElement;
+            if (path.matches("^[0-9]+$")) {
+                this.path = null;
+                this.index = Integer.parseInt(path);
+                this.index2 = null;
+            }
+            else {
+                this.path = path;
+                this.index = index;
+                this.index2 = index2;
+            }
+        }
 
         public PathElement(final boolean firstElement, final String path, final Integer index)
         {
-            this.firstElement = firstElement;
-            if (path.matches("^[0-9]+$")) {
-            	this.path = null;
-            	this.index = Integer.parseInt(path);
-            }
-            else {
-            	this.path = path;
-                this.index = index;
-            }
+            this(firstElement, path, index, null);
         }
 
         public String getPath()
@@ -61,6 +68,10 @@ public class CNSymbolPath extends CNPath
         public Integer getIndex()
         {
             return this.index;
+        }
+
+        public Integer getIndex2() {
+            return this.index2;
         }
         
         public int getEncodedSize() {
@@ -81,6 +92,12 @@ public class CNSymbolPath extends CNPath
         			size += 2;
         		}
         	}
+            if (index2 != null) {
+                size += 2;
+                if (index2 > MAX_BYTE_VALUE) {
+                    size += 2;
+                }
+            }
         	return size;
         }
         
@@ -133,6 +150,17 @@ public class CNSymbolPath extends CNPath
             		buf.put(index.byteValue());
             	}
             }
+            if (index2 != null) {
+                if (index2 > MAX_BYTE_VALUE) {
+                    buf.put((byte) 0x29);
+                    buf.put((byte) 0);
+                    buf.putShort(index2.shortValue());
+                }
+                else {
+                    buf.put((byte) 0x28);
+                    buf.put(index2.byteValue());
+                }
+            }
 		}
 
         /** @return Is path of odd length, requiring a pad byte? */
@@ -149,11 +177,14 @@ public class CNSymbolPath extends CNPath
             {
                 return this.path;
             }
-            return this.path + "[" + this.index + "]";
+            if (this.index2 == null) {
+                return this.path + "[" + this.index + "]";
+            }
+            return this.path + "[" + this.index + "]" + "[" + this.index2 + "]";
         }
     };
 
-    private final Pattern PATTERN_BRACKETS = Pattern.compile("\\[(\\d+)\\]");
+    private final Pattern PATTERN_BRACKETS = Pattern.compile("\\[(\\d+)(,\\s*(\\d+))?\\]");
 
     private final List<PathElement> elements = new ArrayList<>();
 
@@ -170,15 +201,26 @@ public class CNSymbolPath extends CNPath
         {
             final Matcher m = this.PATTERN_BRACKETS.matcher(s);
             Integer index = null;
+            Integer index2 = null;
             String path = s;
             while (m.find())
             {
-                final String match = m.group().replace("[", "").replace("]",
-                        "");
-                index = Integer.parseInt(match);
-                path = path.replace("[" + match + "]", "");
+                String matched = m.group();
+                if (matched.contains(",")) {
+                    final String match = m.group().replace("[", "").replace("]",
+                            "");
+                    String[] indexes = match.split(",");
+                    index = Integer.parseInt(indexes[0]);
+                    index2 = Integer.parseInt(indexes[1].strip());
+                    path = path.replace("[" + match + "]", "");
+                } else {
+                    final String match = m.group().replace("[", "").replace("]",
+                            "");
+                    index = Integer.parseInt(match);
+                    path = path.replace("[" + match + "]", "");
+                }
             }
-            this.elements.add(new PathElement(firstElement, path, index));
+            this.elements.add(new PathElement(firstElement, path, index, index2));
             firstElement = false;
         }
     }
