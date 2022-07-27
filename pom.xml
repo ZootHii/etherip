@@ -4,7 +4,7 @@
 	<groupId>org.epics</groupId>
 	<artifactId>etherip</artifactId>
 	<name>EPICSTools Etherip</name>
-	<version>1.1.0</version>
+	<version>1.1.1</version>
 	<packaging>jar</packaging>
 
 	<properties>
